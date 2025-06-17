@@ -241,3 +241,208 @@ class Model_Recursive_LSTM_v2(nn.Module):
         # We know the speedups to be predicted need to be greater or  equal to zero
         # We use the LeakyRelu to assure this while avoiding the dying ReLu problem
         return self.LeakyReLU(out[:, 0, 0])
+
+
+# -----------------------------------------------------------------------
+# Feed‑forward alternative to LOOPer’s recursive model
+# -----------------------------------------------------------------------
+# This model keeps the original computation‑vector embedding pipeline
+# (expressions → LSTM; transformation vectors → LSTM; three‑part static
+# feature vector → FC layers) but drops all subsequent LSTM/recursive
+# aggregation over the loop tree.  Instead, it flattens the resulting
+# computation embeddings (post‑order traversal, up to max_comps)
+# and feeds the concatenated vector through a 5‑layer MLP.
+# -----------------------------------------------------------------------
+
+class Model_FF_v1(nn.Module):
+    """Feed-forward variant of the LOOPer cost model (no tree recursion).
+
+    Parameters mirror those of the original model where they are still
+    relevant.  Anything related to loop/node LSTMs is omitted because
+    they are not used here.
+    """
+    def __init__(
+        self,
+        input_size,
+        max_comps,
+        comp_embed_layer_sizes=[600, 350, 200, 180],
+        drops=[0.225, 0.225, 0.225, 0.225],
+        output_size=1,
+        lstm_embedding_size=100,
+        expr_embed_size=100,
+        device="cpu",
+        num_layers=1,
+        bidirectional=True,
+    ):
+        super().__init__()
+        self.device = device
+        self.max_comps = max_comps
+        comp_emb_dim = comp_embed_layer_sizes[-1]
+
+        comp_embed_layer_sizes = [
+            input_size + lstm_embedding_size * (2 if bidirectional else 1) * num_layers + expr_embed_size
+        ] + comp_embed_layer_sizes
+
+        self.comp_embedding_layers = nn.ModuleList()
+        self.comp_embedding_dropouts = nn.ModuleList()
+        self.mlp_layers = nn.ModuleList()
+
+        # ------------------------------------------------------------------
+        # Modules reused from the original pipeline — these produce the
+        # per‑computation embedding vectors.
+        # ------------------------------------------------------------------
+        # Create the transformation encoding layers
+        self.encode_vectors = nn.Linear(
+            MAX_TAGS,
+            MAX_TAGS,
+            bias=True
+        )
+        # Create the computation embedding layers
+        for i in range(len(comp_embed_layer_sizes) - 1):
+            self.comp_embedding_layers.append(
+                nn.Linear(
+                    comp_embed_layer_sizes[i], comp_embed_layer_sizes[i + 1], bias=True
+                )
+            )
+            initialization_function_xavier(self.comp_embedding_layers[i].weight)
+            self.comp_embedding_dropouts.append(nn.Dropout(drops[i]))
+
+        # ------------------------------------------------------------------
+        # New feed‑forward regression head (5 FC layers).
+        # Input dim = max_comps * comp_embed_layer_sizes[-1]
+        # ------------------------------------------------------------------
+        flattened_dim = self.max_comps * comp_emb_dim
+        mlp_layer_sizes = [flattened_dim, 512, 256, 128, 64, output_size]
+
+        for i in range(len(mlp_layer_sizes) - 1):
+            self.mlp_layers.append(
+                nn.Linear(
+                    mlp_layer_sizes[i], mlp_layer_sizes[i+1], bias=True
+                )
+            )
+            initialization_function_xavier(self.mlp_layers[i].weight)
+
+
+        self.ELU = nn.ELU()
+        self.LeakyReLU = nn.LeakyReLU(0.01)
+
+        # LSTM to encode computations
+        self.transformation_vectors_embed = nn.LSTM(
+            MAX_TAGS,
+            lstm_embedding_size,
+            batch_first=True,
+            bidirectional=bidirectional,
+            num_layers=num_layers,
+        )
+        # LSTM to encode computation expressions
+        self.exprs_embed = nn.LSTM(
+            11,  # length of operation‑one‑hot per token
+            expr_embed_size,
+            batch_first=True,
+        )
+
+    # ------------------------------------------------------------------
+    # Utility: post‑order traversal to get computation indices
+    # ------------------------------------------------------------------
+    def post_order_indices(self, node):
+        indices = []
+        for child in node.get("child_list", []):
+            indices.extend(self.post_order_indices(child))
+        indices.extend(node.get("computations_indices", []))
+        return indices
+
+    # ------------------------------------------------------------------
+    # Forward pass
+    # ------------------------------------------------------------------
+    def forward(self, tree_tensors):
+        (
+            tree,
+            comps_tensor_first_part,
+            comps_tensor_vectors,
+            comps_tensor_third_part,
+            _,  # loops_tensor (unused)
+            functions_comps_expr_tree,
+        ) = tree_tensors
+
+        # -------------------------------------------------------------
+        # 1. Expression embeddings
+        # -------------------------------------------------------------
+        batch_size, num_comps, len_sequence, len_vector = functions_comps_expr_tree.shape
+        
+        # Expressions embedding layer
+        x = functions_comps_expr_tree.view(batch_size * num_comps, len_sequence, len_vector)
+        _, (expr_embedding, _) = self.exprs_embed(x)
+
+        expr_embedding = expr_embedding.permute(1, 0, 2).reshape(
+            batch_size * num_comps, -1
+        )
+
+        # -------------------------------------------------------------
+        # 2. Transformation‑vector embeddings
+        # -------------------------------------------------------------
+        vectors = self.encode_vectors(comps_tensor_vectors.to(self.device))
+        _, (prog_embedding, _) = self.transformation_vectors_embed(vectors)
+        prog_embedding = prog_embedding.permute(1, 0, 2).reshape(
+            batch_size * num_comps, -1
+        )
+
+        # -------------------------------------------------------------
+        # 3. Static first/third parts
+        # -------------------------------------------------------------
+        first_part = comps_tensor_first_part.to(self.device).view(batch_size * num_comps, -1)
+        third_part = comps_tensor_third_part.to(self.device).view(batch_size * num_comps, -1)
+
+        # -------------------------------------------------------------
+        # 4. Build per‑computation embedding
+        # -------------------------------------------------------------
+        # Concatinate the leftover parts from the computatuion, the vectors embedding, and the expression embedding
+        x = torch.cat(
+            (
+                first_part,
+                prog_embedding,
+                third_part,
+                expr_embedding,
+            ),
+            dim=1,
+        ).view(batch_size, num_comps, -1)
+
+        # Pass the concatinated vector through a feed forward neural network to extract the final computation embedding vector
+        for i in range(len(self.comp_embedding_layers)):
+            x = self.comp_embedding_layers[i](x)
+            x = self.comp_embedding_dropouts[i](self.ELU(x))
+        comps_embeddings = x
+        emb_dim = comps_embeddings.size(-1)
+
+        # -------------------------------------------------------------
+        # 5. Flatten computations in post‑order (pad to max_comps)
+        # -------------------------------------------------------------
+        indices = []
+        for root in tree["roots"]: # get a post-order list of computation indices
+            indices.extend(self.post_order_indices(root))
+
+        # make sure number of computations < max_comps
+        if len(indices) > self.max_comps:
+            raise RuntimeError(
+                f"Program has {len(indices)} computations, but MAX_COMPS is {self.max_comps}"
+            )
+        real_len = len(indices)
+
+        # gather embeddings for those indices (shape B × real_len × emb_dim)
+        flat = torch.index_select(comps_embeddings, 1, comps_embeddings.new_tensor(indices, dtype=torch.long))
+
+        # if we need padding, append zeros so we reach (B × max_comps × emb_dim)
+        if real_len < self.max_comps:
+            pad_size = (batch_size, self.max_comps - real_len, emb_dim)
+            flat = torch.cat([flat, flat.new_zeros(pad_size)], dim=1)
+
+        # reshape to (B, max_comps * emb_dim)
+        mlp_in = flat.reshape(batch_size, -1)
+
+        # -------------------------------------------------------------
+        # 6. MLP regression
+        # -------------------------------------------------------------
+        x = mlp_in
+        for layer in self.mlp_layers[:-1]:
+            x = self.ELU(layer(x))
+        out = self.LeakyReLU(self.mlp_layers[-1](x))
+        return out.squeeze(-1)
