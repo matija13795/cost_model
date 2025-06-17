@@ -8,13 +8,22 @@ from utils.train_utils import *
 
 def define_and_load_model(conf):
     # Define the model
-    model = Model_Recursive_LSTM_v2(
-        input_size=conf.model.input_size,
-        comp_embed_layer_sizes=list(conf.model.comp_embed_layer_sizes),
-        drops=list(conf.model.drops),
-        loops_tensor_size=8,
-        device=conf.testing.gpu,
-    )
+    if conf.model.name == "recursive_lstm":
+        model = Model_Recursive_LSTM_v2(
+            input_size=conf.model.input_size,
+            comp_embed_layer_sizes=list(conf.model.comp_embed_layer_sizes),
+            drops=list(conf.model.drops),
+            loops_tensor_size=8,
+            device=conf.testing.gpu,
+        )
+    elif conf.model.name == "fcnn":
+        model = Model_FF_v1(
+            input_size=conf.model.input_size,
+            max_comps=conf.model.max_comps,
+            comp_embed_layer_sizes=list(conf.model.comp_embed_layer_sizes),
+            drops=list(conf.model.drops),
+            device=conf.testing.gpu,
+        )
     # Load the trained model weights
     model.load_state_dict(
         torch.load(

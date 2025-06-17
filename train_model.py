@@ -53,13 +53,22 @@ def main(conf):
     validation_device = torch.device(conf.training.validation_gpu)
     # Defining the model
     logging.info("Defining the model")
-    model = Model_Recursive_LSTM_v2(
-        input_size=conf.model.input_size,
-        comp_embed_layer_sizes=list(conf.model.comp_embed_layer_sizes),
-        drops=list(conf.model.drops),
-        loops_tensor_size=8,
-        device=train_device,
-    )
+    if conf.model.name == "recursive_lstm":
+        model = Model_Recursive_LSTM_v2(
+            input_size=conf.model.input_size,
+            comp_embed_layer_sizes=list(conf.model.comp_embed_layer_sizes),
+            drops=list(conf.model.drops),
+            loops_tensor_size=8,
+            device=train_device,
+        )
+    elif conf.model.name == "fcnn":
+        model = Model_FF_v1(
+            input_size=conf.model.input_size,
+            max_comps=conf.model.max_comps,
+            comp_embed_layer_sizes=list(conf.model.comp_embed_layer_sizes),
+            drops=list(conf.model.drops),
+            device=train_device,
+        )
     
     # Load model weights and continue training if specified  
     if conf.training.continue_training:
