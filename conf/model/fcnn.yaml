@@ -1,0 +1,14 @@
+name: "fcnn"
+input_size: 846 # Size of the input. Here we specify the size of the computation vector.
+max_comps: 12 # Maximum number of computations per program in the dataset. Check out utils/check_max_comps.py to verify
+comp_embed_layer_sizes:
+  - 600
+  - 350
+  - 200
+  - 180
+drops: # Dropout layers probabilities
+  - 0.050
+  - 0.050
+  - 0.050
+  - 0.050
+  - 0.050
