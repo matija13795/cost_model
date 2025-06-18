@@ -13,6 +13,7 @@ data_generation:
 training:
   log_file: "logs.txt" # Just the name
   lr: 0.001
+  weight_decay: 0.015
   max_epochs: 1000
   training_gpu: "cuda:x" # GPU to train on. Example: cuda:2
   validation_gpu: "cpu" # GPU to validate on. Usually the CPU is enough

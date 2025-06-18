@@ -67,6 +67,8 @@ def main(conf):
             max_comps=conf.model.max_comps,
             comp_embed_layer_sizes=list(conf.model.comp_embed_layer_sizes),
             drops=list(conf.model.drops),
+            mlp_layer_sizes=list(conf.model.mlp_layer_sizes),
+            mlp_dropout=conf.model.mlp_dropout,
             device=train_device,
         )
     
@@ -120,7 +122,7 @@ def main(conf):
     # Defining training params
     criterion = mape_criterion
     optimizer = torch.optim.AdamW(
-        model.parameters(), lr=conf.training.lr, weight_decay=0.15e-1
+        model.parameters(), lr=conf.training.lr, weight_decay=conf.training.weight_decay
     )
     logger = logging.getLogger()
     if conf.wandb.use_wandb:

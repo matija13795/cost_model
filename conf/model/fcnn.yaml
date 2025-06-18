@@ -12,3 +12,5 @@ drops: # Dropout layers probabilities
   - 0.050
   - 0.050
   - 0.050
+mlp_layer_sizes: [512, 256, 128, 64]
+mlp_dropout: 0.20

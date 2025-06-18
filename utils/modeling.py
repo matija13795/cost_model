@@ -267,6 +267,9 @@ class Model_FF_v1(nn.Module):
         max_comps,
         comp_embed_layer_sizes=[600, 350, 200, 180],
         drops=[0.225, 0.225, 0.225, 0.225],
+        *,  # <--- means "all following arguments must be specified as keyword arguments (i.e., name=value), not as positional arguments."
+        mlp_layer_sizes=None,
+        mlp_dropout=0.0,
         output_size=1,
         lstm_embedding_size=100,
         expr_embed_size=100,
@@ -308,11 +311,16 @@ class Model_FF_v1(nn.Module):
             self.comp_embedding_dropouts.append(nn.Dropout(drops[i]))
 
         # ------------------------------------------------------------------
-        # New feed‑forward regression head (5 FC layers).
+        # New feed‑forward regression head.
         # Input dim = max_comps * comp_embed_layer_sizes[-1]
         # ------------------------------------------------------------------
+        if isinstance(mlp_layer_sizes, str): # allow CLI/YAML to pass the list as a string, e.g. "[1024,512,256]"
+            mlp_layer_sizes = [int(x) for x in mlp_layer_sizes.strip(" []").split(",") if x]
+
         flattened_dim = self.max_comps * comp_emb_dim
-        mlp_layer_sizes = [flattened_dim, 512, 256, 128, 64, output_size]
+        default_layers = [512, 256, 128, 64]           # fallback if nothing passed
+        hidden = mlp_layer_sizes or default_layers     # user-defined or default
+        mlp_layer_sizes = [flattened_dim] + hidden + [output_size]
 
         for i in range(len(mlp_layer_sizes) - 1):
             self.mlp_layers.append(
@@ -322,6 +330,8 @@ class Model_FF_v1(nn.Module):
             )
             initialization_function_xavier(self.mlp_layers[i].weight)
 
+        # one shared dropout module
+        self.mlp_dropout = nn.Dropout(mlp_dropout)
 
         self.ELU = nn.ELU()
         self.LeakyReLU = nn.LeakyReLU(0.01)
@@ -443,6 +453,6 @@ class Model_FF_v1(nn.Module):
         # -------------------------------------------------------------
         x = mlp_in
         for layer in self.mlp_layers[:-1]:
-            x = self.ELU(layer(x))
+            x = self.mlp_dropout(self.ELU(layer(x)))
         out = self.LeakyReLU(self.mlp_layers[-1](x))
         return out.squeeze(-1)
