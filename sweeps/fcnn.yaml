@@ -1,0 +1,39 @@
+program: train_model.py # <-- tell wandb what to launch
+command: # <-- tell it HOW to pass args
+  - ${env}
+  - python
+  - ${program}
+  - ${args_no_hyphens} # gives “param=value”, perfect for Hydra
+
+method: random
+count: 50
+metric:
+  name: val_msle
+  goal: minimize
+
+parameters:
+  # ─────── model head ─────────
+  model.mlp_layer_sizes:
+    values:
+      - "[1024, 512, 256, 128, 64, 32]"
+      - "[1024, 512, 256, 128, 64]"
+      - "[512, 256, 128, 64]"
+      - "[256, 128, 64]"
+  model.mlp_dropout:
+    distribution: uniform
+    min: 0.0
+    max: 0.5
+
+  # ───────── optimiser ─────────
+  training.lr:
+    distribution: log_uniform_values # or log_uniform
+    min: 0.00001 # 1e-5
+    max: 0.003 # 3e-3
+  training.weight_decay:
+    distribution: log_uniform_values
+    min: 0.0000001 # instead of 1e-7
+    max: 0.001
+
+  # shorter runs while searching
+  training.max_epochs:
+    values: [20, 30]
