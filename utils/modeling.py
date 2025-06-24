@@ -268,7 +268,8 @@ class Model_FF_v1(nn.Module):
         comp_embed_layer_sizes=[600, 350, 200, 180],
         drops=[0.225, 0.225, 0.225, 0.225],
         *,  # <--- means "all following arguments must be specified as keyword arguments (i.e., name=value), not as positional arguments."
-        mlp_layer_sizes=None,
+        mlp_num_layers=5,
+        mlp_width=512,
         mlp_dropout=0.0,
         output_size=1,
         lstm_embedding_size=100,
@@ -314,12 +315,13 @@ class Model_FF_v1(nn.Module):
         # New feed‑forward regression head.
         # Input dim = max_comps * comp_embed_layer_sizes[-1]
         # ------------------------------------------------------------------
-        if isinstance(mlp_layer_sizes, str): # allow CLI/YAML to pass the list as a string, e.g. "[1024,512,256]"
-            mlp_layer_sizes = [int(x) for x in mlp_layer_sizes.strip(" []").split(",") if x]
+        #if isinstance(mlp_layer_sizes, str): # allow CLI/YAML to pass the list as a string, e.g. "[1024,512,256]"
+        #    mlp_layer_sizes = [int(x) for x in mlp_layer_sizes.strip(" []").split(",") if x]
 
         flattened_dim = self.max_comps * comp_emb_dim
-        default_layers = [512, 256, 128, 64]           # fallback if nothing passed
-        hidden = mlp_layer_sizes or default_layers     # user-defined or default
+        #default_layers = [512, 256, 128, 64]           # fallback if nothing passed
+        #hidden = mlp_layer_sizes or default_layers     # user-defined or default
+        hidden = [mlp_width] * mlp_num_layers
         mlp_layer_sizes = [flattened_dim] + hidden + [output_size]
 
         for i in range(len(mlp_layer_sizes) - 1):

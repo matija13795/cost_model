@@ -67,7 +67,9 @@ def main(conf):
             max_comps=conf.model.max_comps,
             comp_embed_layer_sizes=list(conf.model.comp_embed_layer_sizes),
             drops=list(conf.model.drops),
-            mlp_layer_sizes=list(conf.model.mlp_layer_sizes),
+            mlp_num_layers=conf.model.mlp_num_layers,
+            mlp_width=conf.model.mlp_width,
+            #mlp_layer_sizes=list(conf.model.mlp_layer_sizes),
             mlp_dropout=conf.model.mlp_dropout,
             device=train_device,
         )
