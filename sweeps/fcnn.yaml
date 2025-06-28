@@ -7,7 +7,7 @@ command: # <-- tell it HOW to pass args
 
 method: random
 metric:
-  name: val_msle
+  name: val_mape
   goal: minimize
 
 parameters:
