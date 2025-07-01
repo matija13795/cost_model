@@ -48,8 +48,8 @@ python evaluate_model.py
 
 ## Notes on evaluation metrics
 This repository tracks two types of Mean Absolute Percentage Error (MAPE):
-- Instance-wise MAPE: Computed during training via train_model.py. It averages the error over all (function, schedule) pairs individually. This is the metric logged to wandb, and it is the one reported in the paper.
-- Function-wise MAPE: Computed by evaluate_model.py. It first averages errors per function, then averages across all functions giving equal weight to each function, regardless of how many schedules it has.
+- Instance-wise MAPE: Computed during training via `train_model.py`. It averages the error over all (function, schedule) pairs individually. This is the metric logged to wandb, and it is the one reported in the paper.
+- Function-wise MAPE: Computed by `evaluate_model.py`. It first averages errors per function, then averages across all functions giving equal weight to each function, regardless of how many schedules it has.
 
 Due to the difference in weighting, the two metrics can yield different values.
 For consistency with the paper and comparison purposes, please report instance-wise MAPE.
