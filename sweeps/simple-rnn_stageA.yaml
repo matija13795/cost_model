@@ -1,0 +1,53 @@
+name: simple-rnn_stageA
+project: simple-rnn_alternative
+program: train_model.py
+command:
+  - ${env}
+  - python
+  - ${program}
+  - ${args_no_hyphens}
+  - data_generation.train_dataset_file=scratch/cost_model/data_samples/train_data_sample_500-programs_60k-schedules_forFCNN.pkl
+  - data_generation.valid_dataset_file=scratch/cost_model/data_samples/val_data_sample_125-programs_20k-schedules_forFCNN.pkl
+  - training.max_epochs=40
+  - training.validation_gpu=cuda:0
+  - training.save_checkpoints=false
+  - model=simple-rnn
+  - model.activation=gelu
+  - model.attn_type=none
+  - model.attn_dropout=0
+
+method: random
+metric:
+  name: val_mape
+  goal: minimize
+
+parameters:
+  training.lr:
+    distribution: log_uniform_values
+    min: 0.0001
+    max: 0.03
+  training.weight_decay:
+    distribution: log_uniform_values
+    min: 0.000001 # 1e-6
+    max: 0.1      # 1e-1
+
+  # RNN core
+  model.rnn_type:
+    values: ["lstm", "gru"]
+  model.rnn_hidden_size:
+    values: [128, 192, 256, 384, 512]
+  model.rnn_num_layers:
+    values: [1, 2, 3]
+  model.rnn_bidirectional:
+    values: [true, false]
+  model.rnn_dropout:
+    values: [0.0, 0.1, 0.2, 0.3]
+
+  # Pooling
+  model.rnn_pooling:
+    values: ["last", "mean", "max"]
+
+early_terminate:
+  type: hyperband
+  min_iter: 10
+  s: 2

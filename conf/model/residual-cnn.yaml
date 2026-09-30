@@ -1,0 +1,38 @@
+name: "residual-cnn"
+input_size: 846 # Size of the input. Here we specify the size of the computation vector.
+max_comps: 12 # Maximum number of computations per program in the dataset. Check out utils/check_max_comps.py to verify
+comp_embed_layer_sizes:
+  - 600
+  - 350
+  - 200
+  - 180
+drops: # Dropout layers probabilities
+  - 0.050
+  - 0.050
+  - 0.050
+  - 0.050
+  - 0.050
+
+# --- CNN stack ---
+# Option A: explicit channels per block
+# cnn_channels: [256, 256, 256]
+cnn_channels: null
+
+# Option B: comment the two above and use width+num_blocks
+cnn_num_blocks: 3
+cnn_width: 256
+cnn_kernel_sizes: [3, 5, 3]   # must match num_blocks; if omitted -> all 3
+
+cnn_use_bn: false
+cnn_dropout: 0.0
+cnn_activation: gelu
+pooling: max
+
+# --- MLP head (post pool), mirrors FF knobs ---
+# mlp_layer_sizes: [512, 256, 128, 64]
+mlp_num_layers: 12
+mlp_width: 16
+mlp_dropout: 0.0
+mlp_use_residual: false
+activation: gelu
+norm_type: none

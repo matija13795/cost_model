@@ -16,3 +16,5 @@ drops: # Dropout layers probabilities
 mlp_num_layers: 5
 mlp_width: 512
 mlp_dropout: 0.20
+activation: elu
+norm_type: none

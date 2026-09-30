@@ -1,0 +1,38 @@
+name: tighter7
+project: fcnn_alternative
+program: train_model.py
+command:
+  - ${env}
+  - python
+  - ${program}
+  - ${args_no_hyphens}
+  - data_generation.train_dataset_file=scratch/cost_model/data_samples/train_data_sample_500-programs_60k-schedules_forFCNN.pkl
+  - data_generation.valid_dataset_file=scratch/cost_model/data_samples/val_data_sample_125-programs_20k-schedules_forFCNN.pkl
+  - training.validation_gpu=cuda:0
+  - training.save_checkpoints=false
+  - model.activation=elu
+  - model.norm_type=none
+  - model.mlp_dropout=0
+
+method: random
+metric:
+  name: val_mape
+  goal: minimize
+
+parameters:
+  model.mlp_num_layers: { values: [10, 20, 30] }
+  model.mlp_width: { values: [4, 8, 16] }
+  training.max_epochs: { value: 40 }
+  training.lr:
+    distribution: uniform
+    min: 0.009
+    max: 0.036
+  training.weight_decay:
+    distribution: log_uniform_values
+    min: 0.0003
+    max: 0.0080
+
+early_terminate:
+  type: hyperband
+  min_iter: 10
+  s: 2

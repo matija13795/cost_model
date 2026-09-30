@@ -1,0 +1,10 @@
+name: "looper_transformer"
+
+d_model: 128           # Half the width (128 -> 64)
+nhead: 8               # Fewer heads (8 -> 4). Must divide d_model perfectly.
+num_layers: 6          # Shallowing the stack (6 -> 2)
+max_seq_len: 669      # Keep this (it's dictated by your data) -- 1344
+
+# Regression Head
+regression_hidden_sizes:
+  - 64

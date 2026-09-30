@@ -1,0 +1,40 @@
+name: "looper_attn"
+input_size: 846 # Size of the input. Here we specify the size of the computation vector.
+comp_embed_layer_sizes:
+  - 600
+  - 350
+  - 200
+  - 180
+drops: # Dropout layers probabilities
+  - 0.050
+  - 0.050
+  - 0.050
+  - 0.050
+  - 0.050
+mlp_layer_sizes: [512, 256, 128, 64]
+
+
+# ---- RNN encoders for tags/exprs ----
+lstm_embedding_size: 100        # tags (MAX_TAGS -> LSTM hidden)
+expr_embed_size: 100            # expr tokens hidden
+num_layers: 1                   # tags LSTM layers
+bidirectional: false            # tags LSTM bidi
+expr_token_size: 11             # matches your data
+
+loops_tensor_size: 8            # you hardcode 8 in train_model.py; set it here for clarity
+output_size: 1
+
+# ---- attention toggles ----
+use_attn_comps: true            # Phase 1
+use_attn_nodes: true            # Phase 1
+use_attn_roots: true            # Phase 1
+
+use_cross_attn_children: true   # Phase 2 (loop-conditioned over children)
+use_cross_attn_comps: true      # Phase 2 (loop-conditioned over comps)
+
+use_attn_tags: true             # Phase 3 (tags sequence)
+use_attn_exprs: true            # Phase 3 (expr sequence)
+
+# ---- attention hparams ----
+attn_dropout: 0
+attn_scale: true                # dot scores scaled by 1/sqrt(d)

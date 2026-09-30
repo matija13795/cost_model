@@ -26,8 +26,20 @@ def define_and_load_model(conf):
             mlp_width=conf.model.mlp_width,
             #mlp_layer_sizes=list(conf.model.mlp_layer_sizes),
             mlp_dropout=conf.model.mlp_dropout,
+            activation=conf.model.activation,
+            norm_type=conf.model.norm_type,
             device=conf.testing.gpu,
         )
+    elif conf.model.name == "cnn":
+        model = Model_CNN_v1(
+            input_size=conf.model.input_size,
+            max_comps=conf.model.max_comps,
+            comp_embed_layer_sizes=list(conf.model.comp_embed_layer_sizes),
+            drops=list(conf.model.drops),
+            device=train_device,
+        )
+
+
     # Load the trained model weights
     model.load_state_dict(
         torch.load(
