@@ -1,0 +1,23 @@
+name: simple-rnn
+input_size: 846 # Size of the input. Here we specify the size of the computation vector.
+comp_embed_layer_sizes:
+  - 600
+  - 350
+  - 200
+  - 180
+drops: # Dropout layers probabilities
+  - 0.050
+  - 0.050
+  - 0.050
+  - 0.050
+  - 0.050
+activation: elu
+
+rnn_type: lstm
+rnn_hidden_size: 256
+rnn_num_layers: 2
+rnn_bidirectional: true
+rnn_dropout: 0
+rnn_pooling: attn  # last | mean | max | attn
+attn_type: dot     # dot | additive | none
+attn_dropout: 0

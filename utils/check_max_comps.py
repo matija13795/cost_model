@@ -1,29 +1,47 @@
-import os
+import argparse
 import glob
+import os
+import sys
 import torch
 
-# -----------------------------------------
-# Paths to scan – add/remove patterns here
-# -----------------------------------------
-PATTERNS = [
-    "batched/train/*_GPU.pt",   # training batches
-    "batched/valid/*_GPU.pt",     # validation batches
-    # If there are *_CPU.pt files, add another pattern:
-    # "batched/**/**/*_CPU.pt",
-]
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Scan .pt dataset files and report the maximum number of comps."
+    )
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(
+        "--patterns",
+        nargs="+",
+        metavar="GLOB",
+        help="One or more shell glob patterns (quote them!)",
+    )
+    group.add_argument(
+        "--file",
+        metavar="PATH",
+        help="Single .pt file to analyse (skip globbing)",
+    )
+    return parser.parse_args()
+
 
 def main():
-    file_list = []
-    for pat in PATTERNS:
-        file_list.extend(glob.glob(pat))
+    args = parse_args()
 
-    if not file_list:
-        raise FileNotFoundError(
-            "No .pt files matched the patterns: {}".format(PATTERNS)
-        )
+    # Build the file list
+    if args.file:
+        if not os.path.isfile(args.file):
+            sys.exit(f"ERROR: {args.file} does not exist")
+        file_list = [args.file]
+    else:  # patterns provided
+        file_list = []
+        for pat in args.patterns:
+            file_list.extend(glob.glob(pat))
+        if not file_list:
+            sys.exit(f"ERROR: no files matched patterns: {args.patterns}")
 
     max_comps = 0
     examined_batches = 0
+
     for pt_path in sorted(file_list):
         print(f"Scanning {pt_path} ...")
         batches = torch.load(pt_path, map_location="cpu")
@@ -37,6 +55,7 @@ def main():
     print("\nFinished.")
     print(f"Examined {examined_batches} batches across {len(file_list)} files.")
     print(f"Maximum number of computations found: {max_comps}")
+
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,63 @@
+name: cnn_random_v1_2conv-blocks
+project: cnn_alternative
+program: train_model.py
+command:
+  - ${env}
+  - python
+  - ${program}
+  - ${args_no_hyphens}
+  - data_generation.train_dataset_file=scratch/cost_model/data_samples/train_data_sample_500-programs_60k-schedules_forFCNN.pkl
+  - data_generation.valid_dataset_file=scratch/cost_model/data_samples/val_data_sample_125-programs_20k-schedules_forFCNN.pkl
+  - training.max_epochs=40
+  - training.validation_gpu=cuda:0
+  - training.save_checkpoints=false
+  - model=cnn
+  - model.max_comps=12
+  - model.norm_type=none
+  - model.mlp_dropout=0
+  - model.activation=gelu
+  - model.mlp_num_layers=20
+  - model.mlp_width=16
+  - model.cnn_activation=gelu
+  - model.cnn_num_blocks=2
+
+method: random
+metric:
+  name: val_mape
+  goal: minimize
+
+parameters:
+  model.cnn_channels:
+    values:
+      - [128, 64]
+      - [192, 96]
+      - [256, 128]
+      - [384, 192]
+  model.cnn_kernel_sizes:
+    values:
+      - [3, 3]
+      - [3, 5]
+      - [5, 5]
+      - [3, 7]
+  model.cnn_use_bn:
+    values: [true, false]
+  model.cnn_dropout:
+    distribution: uniform
+    min: 0.0
+    max: 0.3
+  model.pooling:
+    values: ["max", "avg"]
+
+  training.weight_decay:
+    distribution: log_uniform_values
+    min: 0.000001
+    max: 0.01
+  training.lr:
+    distribution: log_uniform_values
+    min: 0.005
+    max: 0.03
+
+early_terminate:
+  type: hyperband
+  min_iter: 10
+  s: 2

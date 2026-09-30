@@ -61,6 +61,15 @@ def main(conf):
             loops_tensor_size=8,
             device=train_device,
         )
+    
+    elif conf.model.name == "looper_transformer":
+        model = LOOPerTransformer(
+            d_model=conf.model.d_model,
+            nhead=conf.model.nhead,
+            num_layers=conf.model.num_layers,
+            max_seq_len=conf.model.max_seq_len
+        )
+
     elif conf.model.name == "fcnn":
         model = Model_FF_v1(
             input_size=conf.model.input_size,
@@ -71,8 +80,116 @@ def main(conf):
             mlp_width=conf.model.mlp_width,
             #mlp_layer_sizes=list(conf.model.mlp_layer_sizes),
             mlp_dropout=conf.model.mlp_dropout,
+            activation=conf.model.activation,
+            norm_type=conf.model.norm_type,
             device=train_device,
         )
+
+    elif conf.model.name == "residual-fcnn":
+        model = Model_FF_v2(
+            input_size=conf.model.input_size,
+            max_comps=conf.model.max_comps,
+            comp_embed_layer_sizes=list(conf.model.comp_embed_layer_sizes),
+            drops=list(conf.model.drops),
+            mlp_num_layers=conf.model.mlp_num_layers,
+            mlp_width=conf.model.mlp_width,
+            #mlp_layer_sizes=list(conf.model.mlp_layer_sizes),
+            mlp_dropout=conf.model.mlp_dropout,
+            activation=conf.model.activation,
+            norm_type=conf.model.norm_type,
+            device=train_device,
+        )
+
+    elif conf.model.name == "cnn":
+        model = Model_CNN_v1(
+            input_size=conf.model.input_size,
+            max_comps=conf.model.max_comps,
+            comp_embed_layer_sizes=list(conf.model.comp_embed_layer_sizes),
+            drops=list(conf.model.drops),
+            mlp_num_layers=conf.model.mlp_num_layers,
+            mlp_width=conf.model.mlp_width,
+            mlp_dropout=conf.model.mlp_dropout,
+            activation=conf.model.activation,
+            norm_type=conf.model.norm_type,
+
+            cnn_channels=conf.model.get("cnn_channels", None),
+            cnn_kernel_sizes=conf.model.get("cnn_kernel_sizes", None),
+            cnn_num_blocks = conf.model.cnn_num_blocks,
+            cnn_width = conf.model.cnn_width,
+            cnn_use_bn = conf.model.cnn_use_bn,
+            cnn_dropout = conf.model.cnn_dropout,
+            cnn_activation = conf.model.cnn_activation,
+            pooling = conf.model.pooling,
+            device=train_device,
+        )
+    
+    elif conf.model.name == "residual-cnn":
+        model = Model_CNN_v2(
+            input_size=conf.model.input_size,
+            max_comps=conf.model.max_comps,
+            comp_embed_layer_sizes=list(conf.model.comp_embed_layer_sizes),
+            drops=list(conf.model.drops),
+            mlp_num_layers=conf.model.mlp_num_layers,
+            mlp_width=conf.model.mlp_width,
+            mlp_dropout=conf.model.mlp_dropout,
+            activation=conf.model.activation,
+            norm_type=conf.model.norm_type,
+
+            cnn_channels=conf.model.get("cnn_channels", None),
+            cnn_kernel_sizes=conf.model.get("cnn_kernel_sizes", None),
+            cnn_num_blocks = conf.model.cnn_num_blocks,
+            cnn_width = conf.model.cnn_width,
+            cnn_use_bn = conf.model.cnn_use_bn,
+            cnn_dropout = conf.model.cnn_dropout,
+            cnn_activation = conf.model.cnn_activation,
+            pooling = conf.model.pooling,
+            mlp_use_residual = conf.model.mlp_use_residual,
+            device=train_device,
+        )
+    
+    elif conf.model.name == "simple-rnn":
+        model = Model_RNN_v1(
+            input_size=conf.model.input_size,
+            comp_embed_layer_sizes=list(conf.model.comp_embed_layer_sizes),
+            drops=list(conf.model.drops),
+            activation=conf.model.activation,
+            rnn_type=conf.model.rnn_type,
+            rnn_hidden_size=conf.model.rnn_hidden_size,
+            rnn_num_layers=conf.model.rnn_num_layers,
+            rnn_bidirectional=conf.model.rnn_bidirectional,
+            rnn_dropout=conf.model.rnn_dropout,
+            rnn_pooling=conf.model.rnn_pooling,
+            attn_type=conf.model.attn_type,
+            attn_dropout=conf.model.attn_dropout,
+            device=train_device,
+        )
+    
+    elif conf.model.name == "looper_attn":
+        model = Model_Recursive_LSTM_v3(
+            input_size=conf.model.input_size,
+            comp_embed_layer_sizes=list(conf.model.comp_embed_layer_sizes),
+            drops=list(conf.model.drops),
+            loops_tensor_size=8,
+            use_attn_comps=True,
+            use_attn_nodes=True,
+            use_attn_roots=True,
+            use_cross_attn_children=True,
+            use_cross_attn_comps=True,
+            use_attn_tags=True,
+            use_attn_exprs=True,
+            device=train_device,
+        )
+
+        # model = Model_RNN_v2(
+        #     input_size=conf.model.input_size,
+        #     comp_embed_layer_sizes=list(conf.model.comp_embed_layer_sizes),
+        #     drops=list(conf.model.drops),
+        #     rnn_hidden_size=conf.model.rnn_hidden_size,
+        #     rnn_num_layers=conf.model.rnn_num_layers,
+        #     rnn_bidirectional=conf.model.rnn_bidirectional,
+        #     rnn_dropout=conf.model.rnn_dropout,
+        #     device=train_device,
+        # )
     
     # Load model weights and continue training if specified  
     if conf.training.continue_training:
@@ -101,7 +218,10 @@ def main(conf):
     
     print(f"Loading first part of the training set {train_file_path} into device number : {conf.training.training_gpu}")
     with open(train_file_path, "rb") as file:
-        train_bl_1 = torch.load(train_file_path, map_location=train_device)
+        if conf.training.load_on_cpu == True:
+            train_bl_1 = torch.load(train_file_path, map_location="cpu")
+        else:
+            train_bl_1 = torch.load(train_file_path, map_location=train_device)
     
     # Fuse loaded training batches
     train_bl = train_bl_1 + train_bl_2 if len(train_bl_2) > 0 else train_bl_1
@@ -116,7 +236,10 @@ def main(conf):
     
     print(f"Loading first part of the validation set {validation_file_path} into device: {conf.training.validation_gpu}")
     with open(validation_file_path, "rb") as file:
-        val_bl_1 = torch.load(validation_file_path, map_location=validation_device)
+        if conf.training.load_on_cpu == True:
+            val_bl_1 = torch.load(validation_file_path, map_location="cpu")
+        else:
+            val_bl_1 = torch.load(validation_file_path, map_location=validation_device)
     
     # Fuse loaded training batches
     val_bl = val_bl_1 + val_bl_2 if len(val_bl_2) > 0 else val_bl_1

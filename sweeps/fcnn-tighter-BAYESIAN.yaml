@@ -1,0 +1,43 @@
+name: bayesian_tighter_fcnn
+project: fcnn_alternative
+program: train_model.py
+command:
+  - ${env}
+  - python
+  - ${program}
+  - ${args_no_hyphens}
+
+method: bayes
+metric:
+  name: val_mape
+  goal: minimize
+
+parameters:
+  # kept static from best tighter sweep
+  model.mlp_num_layers: { values: [7, 8, 9, 10] }
+  model.mlp_width: { values: [128, 256, 384, 512] }
+  model.mlp_dropout:
+    distribution: uniform
+    min: 0.0
+    max: 0.2
+  training.max_epochs: { value: 40 }
+  training.lr:
+    distribution: log_uniform_values
+    min: 0.0002 # 2e-4
+    max: 0.002  # 2e-3
+  training.weight_decay:
+    distribution: log_uniform_values
+    min: 0.00001 # 1e-5
+    max: 0.01    # 1e-2
+
+  # new search space
+  model.activation:
+    values: ["elu"]
+
+  model.norm_type:
+    values: ["none"]
+
+early_terminate:
+  type: hyperband
+  min_iter: 10
+  s: 2

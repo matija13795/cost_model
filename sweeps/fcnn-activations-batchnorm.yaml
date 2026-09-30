@@ -1,0 +1,41 @@
+name: activations_batchnorm
+project: fcnn_alternative
+program: train_model.py
+command:
+  - ${env}
+  - python
+  - ${program}
+  - ${args_no_hyphens}
+
+method: random
+metric:
+  name: val_mape
+  goal: minimize
+
+parameters:
+  # kept static from best tighter sweep
+  model.mlp_num_layers:
+    value: 9
+  model.mlp_width:
+    value: 256
+  training.lr:
+    distribution: log_uniform_values
+    min: 0.00095242415438366645 # 0.5 × best
+    max: 0.0038096966175346658 # 2 × best
+  training.weight_decay:
+    value: 0.0005
+
+  # new search space
+  model.activation:
+    values: ["relu", "leaky_relu", "gelu", "silu", "elu"]
+
+  model.norm_type:
+    values: ["none", "layernorm"]
+
+  model.mlp_dropout:
+    values: [0.0, 0.05, 0.10]
+
+# early_terminate:
+#   type: hyperband
+#   min_iter: 10
+#   s: 2

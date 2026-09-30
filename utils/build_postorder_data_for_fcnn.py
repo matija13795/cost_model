@@ -54,7 +54,7 @@ def convert(dataset):
 
 def main(in_path: Path, out_path: Path):
     print(f"Loading dataset: {in_path}")
-    data = torch.load(in_path)
+    data = torch.load(in_path, map_location="cpu")
     new_data = convert(data)
     torch.save(new_data, out_path)
     print(f"Saved {len(new_data)} samples → {out_path}")

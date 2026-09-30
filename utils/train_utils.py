@@ -49,12 +49,13 @@ def train_model(
         dataloader_size["val"] += label.shape[0]
     
     # Use the 1cycle learning rate policy
-    scheduler = OneCycleLR(
-        optimizer,
-        max_lr=max_lr,
-        steps_per_epoch=len(dataloader["train"]),
-        epochs=num_epochs,
-    )
+    if config.training.scheduler == True:
+        scheduler = OneCycleLR(
+            optimizer,
+            max_lr=max_lr,
+            steps_per_epoch=len(dataloader["train"]),
+            epochs=num_epochs,
+        )
     
     for epoch in range(num_epochs):
         epoch_start = time.time()
@@ -80,14 +81,38 @@ def train_model(
             for inputs, labels in pbar:
                 # Send the labels and inputs to the training device
                 original_device = labels.device
-                inputs = (
-                    inputs[0],
-                    inputs[1].to(device),
-                    inputs[2].to(device),
-                    inputs[3].to(device),
-                    inputs[4].to(device),
-                    inputs[5].to(device),
-                )
+                if config.model.name == "recursive_lstm" or config.model.name == "looper_attn":
+                    inputs = (
+                        inputs[0],
+                        inputs[1].to(device),
+                        inputs[2].to(device),
+                        inputs[3].to(device),
+                        inputs[4].to(device),
+                        inputs[5].to(device),
+                    )
+                elif config.model.name == "fcnn" or config.model.name == "cnn" or config.model.name == "residual-cnn" or config.model.name == "residual-fcnn" or config.model.name == "simple-rnn":
+                    inputs = (
+                        inputs[0].to(device),
+                        inputs[1].to(device),
+                        inputs[2].to(device),
+                        inputs[3].to(device),
+                        inputs[4].to(device),
+                    )
+                
+                elif config.model.name == "looper_transformer":
+                    inputs = (
+                        inputs[0].to(device),
+                        inputs[1].to(device),
+                        inputs[2].to(device),
+                        inputs[3].to(device),
+                        inputs[4].to(device),
+                        inputs[5].to(device),
+                        inputs[6].to(device),
+                        inputs[7].to(device),
+                        inputs[8].to(device),
+                        inputs[9].to(device),
+                    )
+
                 labels = labels.to(device)
                 
                 # Reset the gradients for all tensors
@@ -117,20 +142,22 @@ def train_model(
                 # If we reached a new minimum loss
                 if epoch_loss <= best_loss:
                     best_loss = epoch_loss
+
                     # Save the model weights at this checkpoint
-                    best_model = copy.deepcopy(model)
-                    saved_model_path = os.path.join(config.experiment.base_path, "weights/")
-                    if not os.path.exists(saved_model_path):
-                        os.makedirs(saved_model_path)
-                    full_path = os.path.join(
-                            saved_model_path,
-                            f"best_model_{config.experiment.name}_{hash:4x}.pt",
+                    if config.training.save_checkpoints == True:
+                        best_model = copy.deepcopy(model)
+                        saved_model_path = os.path.join(config.experiment.base_path, "weights/")
+                        if not os.path.exists(saved_model_path):
+                            os.makedirs(saved_model_path)
+                        full_path = os.path.join(
+                                saved_model_path,
+                                f"best_model_{config.experiment.name}_{hash:4x}.pt",
+                            )
+                        logger.debug(f"Saving checkpoint to {full_path}")
+                        torch.save(
+                            model.state_dict(),
+                            full_path,
                         )
-                    logger.debug(f"Saving checkpoint to {full_path}")
-                    torch.save(
-                        model.state_dict(),
-                        full_path,
-                    )
                 # Track progress using the wandb platform
                 if config.wandb.use_wandb:
                     wandb.log(
@@ -172,7 +199,8 @@ def train_model(
                     )
             else:
                 train_loss = epoch_loss
-                scheduler.step()
+                if config.training.scheduler == True:
+                    scheduler.step()
     time_elapsed = time.time() - since
 
     print(

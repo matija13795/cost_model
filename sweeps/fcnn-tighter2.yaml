@@ -1,0 +1,43 @@
+name: random_tighter_tighter
+project: fcnn_alternative
+program: train_model.py
+command:
+  - ${env}
+  - python
+  - ${program}
+  - ${args_no_hyphens}
+
+method: random
+metric:
+  name: val_mape
+  goal: minimize
+
+parameters:
+  # kept static from best tighter sweep
+  model.mlp_num_layers: { values: [8, 9] }
+  model.mlp_width: { values: [64, 128, 192, 256, 320] }
+  model.mlp_dropout:
+    distribution: uniform
+    min: 0.0
+    max: 0.05
+  training.max_epochs: { value: 40 }
+  training.lr:
+    distribution: log_uniform_values
+    min: 0.0002 # 2e-4
+    max: 0.002  # 2e-3
+  training.weight_decay:
+    distribution: log_uniform_values
+    min: 0.000001 # 1e-6
+    max: 0.01     # 1e-2
+
+  # new search space
+  model.activation:
+    values: ["elu"]
+
+  model.norm_type:
+    values: ["none"]
+
+early_terminate:
+  type: hyperband
+  min_iter: 10
+  s: 2
