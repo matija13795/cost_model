@@ -129,6 +129,8 @@ def train_model(
                     if phase == "train":
                         # Backpropagation
                         loss.backward()
+                        if config.model.name == "looper_transformer":
+                            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                         optimizer.step()
                 pbar.set_description("Loss: {:.3f}".format(loss.item()))
                 running_loss += loss.item() * max_batch_size

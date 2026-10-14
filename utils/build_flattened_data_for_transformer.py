@@ -79,7 +79,6 @@ def convert(dataset, max_seq_len):
 def main(in_path: Path, out_path: Path, max_seq_len: int):
     print(f"Loading: {in_path}")
     data = torch.load(in_path, map_location="cpu")
-    # Pass the argument here
     new_data = convert(data, max_seq_len)
     torch.save(new_data, out_path)
     print(f"Saved {len(new_data)} samples -> {out_path}")
@@ -88,7 +87,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--in", type=Path, required=True, dest="in_path")
     ap.add_argument("--out", type=Path, required=True, dest="out_path")
-    # Added the new argument here
     ap.add_argument("--max_len", type=int, default=669, help="Maximum sequence length")
     
     args = ap.parse_args()
