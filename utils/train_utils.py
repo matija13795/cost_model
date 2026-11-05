@@ -13,10 +13,12 @@ import torch.nn.functional as F
 import torch.distributed as dist
 import torch.multiprocessing as mp
 import os
-# Calculate the mean absolute percentage error
+# UPDATED MAPE TO PREVENT DIVISION BY ZERO !!!, 14-Oct-2026
 def mape_criterion(inputs, targets):
-    eps = 1e-5
-    return 100 * torch.mean(torch.abs(targets - inputs) / (targets + eps))
+    eps = 1e-4
+    inputs = inputs.view(-1)
+    targets = targets.view(-1)
+    return 100 * torch.mean(torch.abs(targets - inputs) / torch.clamp(torch.abs(targets), min=eps))
 
 def train_model(
     config,
@@ -78,7 +80,7 @@ def train_model(
             pbar = tqdm(dataloader[phase])
             
             # For each batch in the dataset
-            for inputs, labels in pbar:
+            for step, (inputs, labels) in enumerate(pbar):
                 # Send the labels and inputs to the training device
                 original_device = labels.device
                 if config.model.name == "recursive_lstm" or config.model.name == "looper_attn":
@@ -100,43 +102,37 @@ def train_model(
                     )
                 
                 elif config.model.name == "looper_transformer":
-                    inputs = (
-                        inputs[0].to(device),
-                        inputs[1].to(device),
-                        inputs[2].to(device),
-                        inputs[3].to(device),
-                        inputs[4].to(device),
-                        inputs[5].to(device),
-                        inputs[6].to(device),
-                        inputs[7].to(device),
-                        inputs[8].to(device),
-                        inputs[9].to(device),
-                    )
+                    inputs = tuple(t.to(device, non_blocking=True) for t in inputs)
 
-                labels = labels.to(device)
-                
-                # Reset the gradients for all tensors
-                optimizer.zero_grad()
+                labels = labels.to(device, non_blocking=True)
+                optimizer.zero_grad(set_to_none=True)
 
                 with torch.set_grad_enabled(phase == "train"):
-                    # Get the model predictions
-                    outputs = model(inputs)
-                    assert outputs.shape == labels.shape
-                    
-                    # Calculate the loss
-                    loss = criterion(outputs, labels)*labels.shape[0]/max_batch_size
+                    # bfloat16 autocast unlocks H200 Tensor Cores + FlashAttention-2 with fp32 range
+                    with torch.amp.autocast("cuda", dtype=torch.bfloat16, enabled=(config.model.name == "looper_transformer")):
+                        outputs = model(inputs).view(-1)
+                        labels_flat = labels.view(-1)
+                        loss = criterion(outputs.float(), labels_flat.float()) * labels_flat.shape[0] / max_batch_size
+
+                    # Guardrail 1: Forward pass check
+                    if not torch.isfinite(loss):
+                        print(f"\n[WARNING] Non-finite forward loss at phase={phase}, step={step}!", flush=True)
+                        continue
                     
                     if phase == "train":
-                        # Backpropagation
                         loss.backward()
                         if config.model.name == "looper_transformer":
-                            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                            if not torch.isfinite(grad_norm):
+                                print(f"\n[WARNING] Non-finite grad_norm at step={step}!", flush=True)
+                                optimizer.zero_grad(set_to_none=True)
+                                continue
                         optimizer.step()
-                pbar.set_description("Loss: {:.3f}".format(loss.item()))
-                running_loss += loss.item() * max_batch_size
-                # Send the labels back to the original device 
-                labels = labels.to(original_device)
-                epoch_end = time.time()
+                loss_val = loss.item()
+                if step % 20 == 0:
+                    pbar.set_description("Loss: {:.3f}".format(loss_val))
+                running_loss += loss_val * max_batch_size
+            epoch_end = time.time()
             epoch_loss = running_loss / dataloader_size[phase]
             if phase == "val":
                 # Append loss to the list of validation losses

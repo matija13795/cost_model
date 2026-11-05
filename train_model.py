@@ -34,6 +34,9 @@ def load_batches_from_path(train_paths, train_devices, val_paths):
     return train_bl, val_bl
 @hydra.main(config_path="conf", config_name="config")
 def main(conf):
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
+    torch.set_float32_matmul_precision("high")
     # Defining logger
     log_filename = [part for part in conf.training.log_file.split('/') if len(part) > 3][-1]
     log_folder_path = os.path.join(conf.experiment.base_path, "logs/")
@@ -243,7 +246,19 @@ def main(conf):
     
     # Fuse loaded training batches
     val_bl = val_bl_1 + val_bl_2 if len(val_bl_2) > 0 else val_bl_1
-        
+
+    if conf.model.name == "looper_transformer":
+        print("Sanitizing and casting dataset tensors once in memory...")
+        for split_bl in [train_bl, val_bl]:
+            for idx in range(len(split_bl)):
+                inputs, labels = split_bl[idx]
+                clean_inputs = tuple(
+                    torch.nan_to_num(t.float(), nan=0.0, posinf=1e4, neginf=-1e4)
+                    if t.is_floating_point() else t
+                    for t in inputs
+                )
+                split_bl[idx] = (clean_inputs, labels.float())
+
     # Defining training params
     criterion = mape_criterion
     optimizer = torch.optim.AdamW(
@@ -258,8 +273,10 @@ def main(conf):
     
     # Training
     print("Training the model")
+    # TEMPORARY TEST: Start right before Batch 119 to test in 30 seconds
+    # train_bl = train_bl[:125]
     bl_dict = {"train": train_bl, "val": val_bl}
-    
+
     train_model(
         config=conf,
         model=model,

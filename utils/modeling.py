@@ -340,7 +340,10 @@ class LOOPerTransformer(nn.Module):
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=d_model, nhead=nhead, dim_feedforward=d_model*4, batch_first=True
         )
-        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+        self.transformer = torch.compile(
+            nn.TransformerEncoder(encoder_layer, num_layers=num_layers),
+            dynamic=True
+        )
         
         # Regression Head
         self.regression = nn.Sequential(
@@ -351,55 +354,50 @@ class LOOPerTransformer(nn.Module):
         )
 
     def assemble_sequence(self, l_e, d_e, t_e, a_e, o_e, types, indices, depths, segments, real_len):
-        """
-        Assembles a dynamically-sized sequence based on the actual program length.
-        """
         batch_size = l_e.shape[0]
         device = l_e.device
-        
-        # 1. Initialize full_seq to the REAL length, not the MAX length
-        full_seq = torch.zeros((batch_size, real_len, self.d_model), device=device)
-        
+        dtype = l_e.dtype
+
+        # 1. Initialize full_seq matching the encoder dtype (supports fp32 and bf16)
+        full_seq = torch.zeros((batch_size, real_len, self.d_model), device=device, dtype=dtype)
+
         # 2. Set [CLS] token at pos 0
-        full_seq[:, 0, :] = self.encoders.cls_token
+        full_seq[:, 0, :] = self.encoders.cls_token.to(dtype)
 
         # 3. Flatten computation features
         num_comps = d_e.shape[1]
         t_e_flat = t_e.view(batch_size, num_comps * 4, -1)
         o_e_flat = o_e.view(batch_size, num_comps * 66, -1)
 
-        # 4. Gather logic (Vectorized)
+        # 4. TRULY Vectorized Gather (6 tensor ops total, zero .item() calls!)
+        types_body = types[1:]
         for t_type in range(6):
-            # types is already sliced to real_len in the forward pass
-            type_mask = (types[1:] == t_type) 
-            if not type_mask.any(): continue
-            
-            # Get sequence positions (offset by 1 because of [CLS])
-            seq_indices = (type_mask.nonzero(as_tuple=True)[0] + 1)
-            
-            for s_idx in seq_indices:
-                d_idx = indices[s_idx].item()
-                
-                if t_type == 0: # Loop
-                    feat = l_e[:, d_idx, :]
-                elif t_type == 1: # Domain
-                    feat = d_e[:, d_idx, :]
-                elif t_type == 2: # Transformation
-                    feat = t_e_flat[:, d_idx, :]
-                elif t_type == 3: # Access
-                    feat = a_e[:, d_idx, :]
-                elif t_type == 4: # Operations
-                    c_val, op_sub = d_idx // 100, d_idx % 100
-                    feat = o_e_flat[:, c_val * 66 + op_sub, :]
-                elif t_type == 5: # Loop End
-                    feat = self.encoders.loop_end_token.expand(batch_size, -1, -1).squeeze(1)
+            seq_indices = torch.where(types_body == t_type)[0] + 1
+            if seq_indices.numel() == 0:
+                continue
 
-                full_seq[:, s_idx, :] = feat
+            d_indices = indices[seq_indices].long()
 
-        # 5. Add Structural Embeddings (sliced to real_len)
-        depth_meta = self.encoders.depth_emb(depths).unsqueeze(0)
-        seg_meta = self.encoders.segment_emb(segments).unsqueeze(0)
-        
+            if t_type == 0:    # Loop
+                full_seq[:, seq_indices, :] = l_e[:, d_indices, :]
+            elif t_type == 1:  # Domain
+                full_seq[:, seq_indices, :] = d_e[:, d_indices, :]
+            elif t_type == 2:  # Transformation
+                full_seq[:, seq_indices, :] = t_e_flat[:, d_indices, :]
+            elif t_type == 3:  # Access
+                full_seq[:, seq_indices, :] = a_e[:, d_indices, :]
+            elif t_type == 4:  # Operations
+                op_indices = (d_indices // 100) * 66 + (d_indices % 100)
+                full_seq[:, seq_indices, :] = o_e_flat[:, op_indices, :]
+            elif t_type == 5:  # Loop End
+                full_seq[:, seq_indices, :] = self.encoders.loop_end_token.to(dtype).expand(
+                    batch_size, seq_indices.numel(), -1
+                )
+
+        # 5. Add Structural Embeddings
+        depth_meta = self.encoders.depth_emb(depths).unsqueeze(0).to(dtype)
+        seg_meta = self.encoders.segment_emb(segments).unsqueeze(0).to(dtype)
+
         return full_seq + depth_meta + seg_meta
 
     def forward(self, flattened_tensors):
@@ -409,51 +407,47 @@ class LOOPerTransformer(nn.Module):
 
         # 1. Handle Metadata (1D vs 2D)
         if types.dim() == 2:
-            types_bp = types[0]
-            indices_bp = indices[0]
-            depths_bp = depths[0]
-            segments_bp = segments[0]
-            mask_blueprint = mask[0] 
+            types_bp, indices_bp, depths_bp, segments_bp, mask_blueprint = (
+                types[0], indices[0], depths[0], segments[0], mask[0]
+            )
         else:
-            types_bp = types
-            indices_bp = indices
-            depths_bp = depths
-            segments_bp = segments
-            mask_blueprint = mask
+            types_bp, indices_bp, depths_bp, segments_bp, mask_blueprint = (
+                types, indices, depths, segments, mask
+            )
 
         # 2. Dynamic Slicing
-        real_len = torch.where(~mask_blueprint)[0][-1].item() + 1
-        
+        real_len = min(torch.where(~mask_blueprint)[0][-1].item() + 1, self.max_seq_len)
+
+        depths_s = torch.clamp(depths_bp[:real_len], min=0, max=self.encoders.depth_emb.num_embeddings - 1)
+        segments_s = torch.clamp(segments_bp[:real_len], min=0, max=self.encoders.segment_emb.num_embeddings - 1)
+
         # 3. Assemble Sequence
         l_e, d_e, t_e, a_e, o_e = self.encoders(loops, dom, trans, acc, ops)
-        
-        # Slice the blueprint inside the call
+
         full_seq = self.assemble_sequence(
-            l_e, d_e, t_e, a_e, o_e, 
-            types_bp[:real_len], 
-            indices_bp[:real_len], 
-            depths_bp[:real_len], 
-            segments_bp[:real_len], 
-            real_len
+            l_e, d_e, t_e, a_e, o_e,
+            types_bp[:real_len],
+            indices_bp[:real_len],
+            depths_s,
+            segments_s,
+            real_len,
         )
-        
+
         # 4. Positional Encoding
-        full_seq = full_seq + self.pos_emb[:, :real_len, :]
+        full_seq = (full_seq + self.pos_emb[:, :real_len, :].to(full_seq.dtype)).contiguous()
 
-        # 5. CRITICAL FIX: Contiguous Mask
-        # .clone().contiguous() forces PyTorch to actually copy the data into a 
-        # clean, packed memory block that the optimized kernels can read.
-        final_mask = mask_blueprint[:real_len].unsqueeze(0).expand(batch_size, -1).clone().contiguous().to(device).bool()
+        # 5. Fast-Path Masking: If dynamic slicing already removed all padding, pass None
+        # so PyTorch's FlashAttention-2 kernel runs unobstructed!
+        sliced_mask = mask_blueprint[:real_len]
+        if sliced_mask.any():
+            final_mask = sliced_mask.unsqueeze(0).expand(batch_size, -1).clone().contiguous().to(device).bool()
+            final_mask[:, 0] = False
+        else:
+            final_mask = None
 
-        # 6. Safety Check: If it still fails, we'll want to see these shapes
-        # print(f"Seq: {full_seq.shape}, Mask: {final_mask.shape}")
-
-        # Ensure full_seq is also contiguous just in case
-        full_seq = full_seq.contiguous()
-
-        # 7. Transformer
+        # 6. Transformer
         trans_out = self.transformer(full_seq, src_key_padding_mask=final_mask)
-        
+
         return self.regression(trans_out[:, 0, :]).view(-1)
 
 
