@@ -1,0 +1,33 @@
+{
+  "upstream_base_commit": "5a18f1c6bd2104aee2f2d57fc234fcf9f5e990d9",
+  "origin": "LOOPer_Four_Model_Source_20261119; unchanged numerical implementation",
+  "unchanged_sha256": {
+    "models/gnn/__init__.py": "56077d6183a401f0cd200bef07c55fea87586b14e51f6bff20ec41f17d112409",
+    "models/gnn/constants.py": "8eb1156534b31f74b10137482e90175a18b2327c49ab95a9a7d17923eeb4773d",
+    "models/gnn/model.py": "331aca37b8e3a473f4029faf4e9f96d4154898dbe4d7156ce802d2f9a533efb4",
+    "models/gnn/gnn.py": "212d38860f6a932db05c1cf35946b0ab082594cd42f8f6d6c642e73c0882237e",
+    "models/gnn/graph.py": "7903d6f05ac29db74f1389ffad7a517c7f9b77fb7528e2811e9a2939629d5004",
+    "models/gnn/full_gnn.py": "1a8e971aca4864ac315109dea236cbd3746187877c1f2d569ab38da2557ec1ad",
+    "models/gnn/full_gnn_data.py": "b48a8d88a4e1648949ebd60e7276aa074fd70793ba7d56808a6d62f8ca14bce9",
+    "models/gnn/hetero_data.py": "cfe63c856a5af4e0fe38319238d690ef4b52132f54398e56b90f9c04c034456b",
+    "models/gnn/hetero_gat.py": "e760925b9f92b98cd2d4174d80c3a233059647c6674064745e93b154737d85d0",
+    "models/gnn/efficient_model.py": "e38f727a4d4dddd92d94e642269aa4d65f8fb3df5e0b90ef25eb54542d466b3e",
+    "models/gnn/paper_models.py": "929860eb8177341432b0865e8a5a064d3c64c7299e73f5ebc940cc3b68f19c16",
+    "models/gnn/io_utils.py": "3ec379a9ad35377bf349e3e65207861790074ea515482c76397084e785e7375f",
+    "models/gnn/data/__init__.py": "a170ea4309096f7bbde3b9b38477baf616db6ab0b679f63d0d9e44bfc6e631ec",
+    "models/gnn/data/features.py": "e5a4b0309cd39366e1f876bc76a39754fa32f791f357f7b8f048ded95f60e2c7",
+    "models/gnn/data/looperset.py": "ae3fc50320b37070ac0f5327ab380cd3d9b5b556d2009eae9cd75e00fecaf3f6",
+    "models/gnn/pact25_archive/__init__.py": "1ce77160bcc66d3b5b80cce7417be8aad1480023fa83676cf05264486ef995fb",
+    "models/gnn/pact25_archive/modeling.py": "bcfdeaf8018390576e334ef8d477885b9ec0af5029c2f79f71839b09e9e4660e",
+    "models/gnn/vendor/inference_timer/inference_timer.py": "87582ef148153ef4f0ba2d84d759d16864e8233f5884bb6f60bb63ae1d8f6803",
+    "models/gnn/vendor/inference_timer/README.md": "9c1b1ac23d42f2f7e17ce2ba902582c2f5e3d71b9fe9f6e1a13cfb1985f9e532",
+    "models/gnn/vendor/inference_timer/pyproject.toml": "bf95aa5d8d52ba9e2ed0e41310f1105f3a636d850289f495bea29fc981c0d2dc"
+  },
+  "adapted_files": {
+    "models/gnn/pact25_archive/data_utils.py": {
+      "source_sha256": "3977ad92538c08a4e75df6ff5ac9c148ed05c2b28014cc0b828138624022c1ab",
+      "sha256": "77598daab03599ecfdb98c3a31448e0c914e04c8c3f2e832ca2a31c39a4b9ce5",
+      "change": "Retain only the two unchanged constants imported by the archived model; omit unused preprocessing code."
+    }
+  }
+}

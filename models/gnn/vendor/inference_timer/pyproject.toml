@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "inference-timer"
+version = "1.0.1"
+description = "Classroom inference timing with one warmup and a five-run trimmed mean"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.setuptools]
+py-modules = ["inference_timer"]

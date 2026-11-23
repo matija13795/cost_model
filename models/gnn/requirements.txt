@@ -1,0 +1,10 @@
+# Install in a project-local environment. Select the appropriate official Torch wheel.
+torch==2.6.0
+numpy==1.26.4
+pandas==2.2.3
+scipy==1.15.3
+scikit-learn==1.6.1
+sympy==1.13.1
+tqdm==4.67.1
+psutil==7.0.0
+pytest==8.3.5
