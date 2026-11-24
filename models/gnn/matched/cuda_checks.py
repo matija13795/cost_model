@@ -38,7 +38,7 @@ def inputs(base, record, architecture, device):
     return tuple(t.to(device) for t in tensor_batch(batch))
 
 
-def run(fixture, out, steps=200):
+def run(fixture, out, steps=1000):
     out=Path(out);out.mkdir(parents=True,exist_ok=False)
     if not torch.cuda.is_available():
         raise RuntimeError('CUDA diagnostics require an allocated GPU')
@@ -80,7 +80,7 @@ def run(fixture, out, steps=200):
         for _ in range(steps):
             step();model.eval()
             with torch.no_grad():best=min(best,float(mape(model(gpu_input),target)))
-        if best >= .7*initial:
+        if best >= min(10., .7*initial):
             raise ValueError(f'{architecture}: fixed-sample loss did not decrease sufficiently: {initial} -> {best}')
         checkpoint=out/(architecture+'_resume_test.pt')
         atomic_torch(dict(model=model.state_dict(),optimizer=optimizer.state_dict(),
@@ -104,5 +104,5 @@ def run(fixture, out, steps=200):
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--fixture',required=True);p.add_argument('--out',required=True);p.add_argument('--steps',type=int,default=200);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--fixture',required=True);p.add_argument('--out',required=True);p.add_argument('--steps',type=int,default=1000);a=p.parse_args()
     run(a.fixture,a.out,a.steps)
