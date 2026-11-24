@@ -4,7 +4,7 @@ This branch packages the three existing graph variants and a historical LSTM che
 
 ## Status and scope
 
-The model library and evaluation utilities are tested locally. The shared 1M/5M/10M and validation pickle folders are accessible. Training integration is **pending** a content audit and exact split/configuration verification. These model factories must not yet be selected in the upstream trainer by changing only `model`: graph inputs require the original annotation and sample identities as well as the recursive model's tensors.
+The model library and evaluation utilities are tested locally. Original raw datasets and a hyperparameter table arrived on November 24. The new checked preparation path is documented in [matched/README.md](matched/README.md). Full matched training remains gated on complete data reconciliation and GPU checks. The graph factories cannot be selected by changing only `model` in the upstream trainer.
 
 The baseline factory below is the archived baseline used for the historical experiments. It is provided to load those checkpoints and reproduce graph initialization; it does not replace the active upstream baseline or assert that the historical training protocol matches Matija's current runs.
 
@@ -72,11 +72,6 @@ The current suite covers preserved parameter counts/recurrent-module counts, gra
 
 ## Gates before new experiments
 
-1. Inspect the owner-supplied folders in `/scratch/tmp/ms14012_shared_pickled` on an allocated compute node. Each folder currently contains 32 representation pickle parts; do not modify them.
-2. Identify Matija's exact 1M/5M/10M membership and common validation membership. Representation pickles precede footprint filtering and the GPU/CPU batch split, so their membership must be reconciled with the batches used for training. Record file hashes, sample IDs, accepted/dropped schedules and annotation overlap. Confirm that original expression trees and buffer metadata are available for graph construction.
-3. Obtain the actual resolved capstone run configs, including epochs, batch order, loss, optimizer, scheduler stepping, precision and checkpoint selection. The public config template is not sufficient evidence of those settings.
-4. Integrate annotation lookup into the existing batch path without changing its membership or labels; verify tensors and order against the frozen batches. Run smoke/resume/equivalence checks on allocated compute nodes.
-5. Train/evaluate on the agreed splits, measure the agreed common single input on common hardware, and run PolyBench Medium with the resulting checkpoints and identical inputs/settings.
-6. Enter only matched results into the shared sheet. Keep this integration PR in draft until the data path and matched experiment checks are complete.
+Follow the current gates and resolved assumptions in [matched/README.md](matched/README.md). The November 23 processed-folder audit is preserved; those shared folders were subsequently replaced by raw pickle files. Preparation must reconcile the raw files against that audit before new training. This PR stays in draft until training and evaluation integration passes its checks.
 
 Historical 9.24M/1.07M results must remain separately labeled and cannot populate the new matched rows merely because both are called “10M”.

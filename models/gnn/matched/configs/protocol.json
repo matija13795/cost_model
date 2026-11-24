@@ -1,0 +1,50 @@
+{
+  "protocol": "matija_shared_20261124_v1",
+  "provided_settings": {
+    "optimizer": "AdamW",
+    "learning_rate": 0.0001,
+    "batch_size": 512,
+    "epochs": 500,
+    "table_activation": "GELU",
+    "table_initialization": "Xavier"
+  },
+  "provided_model_families": [
+    "FCNN",
+    "CNN",
+    "SimpleRNN"
+  ],
+  "existing_model_families": [
+    "lstm",
+    "hybrid_rgcn",
+    "full_rgcn",
+    "heterogat"
+  ],
+  "resolved_common_settings": {
+    "optimizer": "AdamW",
+    "learning_rate": 0.0001,
+    "batch_size": 512,
+    "epochs": 500,
+    "weight_decay": 0.015,
+    "seed": 42,
+    "scheduler": "constant",
+    "precision": "float32",
+    "tf32": false,
+    "loss": "instance_mape",
+    "denominator_floor": 0.0001,
+    "target_floor": 0.01,
+    "checkpoint_selection": "lowest_instance_weighted_validation_mape",
+    "training_min_functions_per_footprint": 2,
+    "validation_min_functions_per_footprint": 0
+  },
+  "provenance": {
+    "hyperparameter_image_sha256": "03123806e1a1e4f915e8113d6668c0747e336ba64de11d4679cf6d64a5e5601c",
+    "upstream_commit": "5a18f1c6bd2104aee2f2d57fc234fcf9f5e990d9"
+  },
+  "assumptions": [
+    "The supplied table does not define GNN regularization, seed, scheduler, precision or footprint filtering. Values not supplied are explicitly resolved here, not claimed as recovered capstone settings.",
+    "Keep the four existing architectures, activations and initializers unchanged. Table GELU applies to the listed model variants; the current upstream recursive LSTM also retains ELU.",
+    "Weight decay 0.015 and model dropout 0.05 retain our prior common comparator settings.",
+    "Training footprint filter 2 follows the pinned upstream configuration template; retain all audited validation schedules. Exact original GPU/CPU batch-file membership and shuffle order were not supplied.",
+    "Features use unchanged upstream data_utils.py, including its historical loop-zeroing behavior; these are not the earlier corrected-feature experiment."
+  ]
+}
