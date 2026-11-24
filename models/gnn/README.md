@@ -68,7 +68,7 @@ The timer was supplied for this project by the course team. Original attachment 
 PYTHONDONTWRITEBYTECODE=1 python -m pytest -q -p no:cacheprovider tests/gnn
 ```
 
-The current suite covers preserved parameter counts/recurrent-module counts, graph relations, attention weights, padding, graph reindexing, sample isolation, finite gradients, reference/efficient prediction and gradient parity, target isolation, metric agreement and timing protocol. It does not claim a matched full-data training or GPU test of the relocated package. Previously collected CUDA timings are separate historical artifacts, not tests of a newly trained matched checkpoint.
+The current suite covers preserved parameter counts/recurrent-module counts, graph relations, attention weights, padding, graph reindexing, sample isolation, finite gradients, reference/efficient prediction and gradient parity, target isolation, metric agreement and timing protocol. The relocated package also passed allocated A100 prediction-equivalence, learning, single-schedule memorization and checkpoint-resume diagnostics on November 24. Full-data matched training has not started. Previously collected CUDA latency measurements remain separate historical artifacts, not timings of newly trained matched checkpoints.
 
 ## Gates before new experiments
 

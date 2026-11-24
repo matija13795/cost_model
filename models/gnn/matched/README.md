@@ -66,13 +66,15 @@ The standalone entry point is `python -m models.gnn.matched.train --config /proj
   "weight_decay": 0.015,
   "epochs": 500,
   "batch_size": 512,
-  "microbatch": 128,
+  "microbatch": 512,
   "seed": 42,
   "loader_workers": 2,
   "gate_file": "/project/results/production_gate.json",
   "gate_sha256": "SHA256_OF_REVIEWED_GATE"
 }
 ```
+
+Start with the full 512-schedule microbatch; reduce it only if measured memory or throughput requires accumulation, while retaining logical batch size 512.
 
 `model` also accepts `lstm`, `hybrid_rgcn` and `full_rgcn`. Partial logical batches retain the upstream nominal-batch loss scaling (`sum(APE)/512`). Validation MAPE is weighted by actual examples. Each epoch saves an immutable checkpoint with model, optimizer, RNG states, resolved config, dataset/code hashes and history. `latest.json` and `best.json` point to checked checkpoint files. Reusing the same command resumes; changed configuration, source code or data is rejected. `--stop-after N` stops at an epoch boundary without changing the experiment identity.
 
